@@ -22,10 +22,12 @@ from schemas import INPUT_SCHEMA
 
 class ModelHandler:
     def __init__(self):
+        """Initialize the SDXL Turbo pipeline."""
         self.pipe = None
         self.load_model()
 
     def load_model(self):
+        """Load the SDXL Turbo model."""
         try:
             self.pipe = AutoPipelineForText2Image.from_pretrained(
                 "stabilityai/sdxl-turbo",
@@ -42,6 +44,8 @@ class ModelHandler:
             raise RuntimeError(f"Failed to load SDXL Turbo model: {str(e)}")
 
     def generate_image(self, job_input: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate image using SDXL Turbo."""
+
         prompt = job_input.get("prompt")
         negative_prompt = job_input.get("negative_prompt")
         height = job_input.get("height", 512)
@@ -104,6 +108,9 @@ model_handler = ModelHandler()
 
 
 def handler(job):
+    """
+    Handler function for RunPod serverless.
+    """
     try:
         job_input = job["input"]
 
