@@ -22,14 +22,10 @@ from schemas import INPUT_SCHEMA
 
 class ModelHandler:
     def __init__(self):
-        """Initialize the SDXL Turbo pipeline."""
         self.pipe = None
         self.load_model()
 
     def load_model(self):
-        """Load the SDXL Turbo model."""
-        print("🚀 Loading SDXL Turbo model...")
-
         try:
             self.pipe = AutoPipelineForText2Image.from_pretrained(
                 "stabilityai/sdxl-turbo",
@@ -41,18 +37,11 @@ class ModelHandler:
 
             if torch.cuda.is_available():
                 self.pipe.to("cuda")
-                print("✅ Model loaded successfully on GPU!")
-            else:
-                print("⚠️  GPU not available, running on CPU")
 
         except Exception as e:
-            print(f"❌ Error loading model: {str(e)}")
             raise RuntimeError(f"Failed to load SDXL Turbo model: {str(e)}")
 
     def generate_image(self, job_input: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate image using SDXL Turbo."""
-
-        # Extract parameters
         prompt = job_input.get("prompt")
         negative_prompt = job_input.get("negative_prompt")
         height = job_input.get("height", 512)
@@ -62,12 +51,6 @@ class ModelHandler:
         num_images = job_input.get("num_images", 1)
         seed = job_input.get("seed")
 
-        print(f"🎨 Generating {num_images} image(s) with prompt: '{prompt[:50]}...'")
-        print(
-            f"📐 Size: {width}x{height}, Steps: {num_inference_steps}, Guidance: {guidance_scale}"
-        )
-
-        # Set seed for reproducibility
         if seed is not None:
             torch.manual_seed(seed)
             if torch.cuda.is_available():
@@ -76,7 +59,6 @@ class ModelHandler:
         try:
             start_time = time.time()
 
-            # Generate images
             result = self.pipe(
                 prompt=prompt,
                 negative_prompt=negative_prompt,
@@ -88,12 +70,9 @@ class ModelHandler:
             )
 
             generation_time = time.time() - start_time
-            print(f"⚡ Generated in {generation_time:.2f} seconds")
 
-            # Process images
             images_data = []
             for i, image in enumerate(result.images):
-                # Convert to base64
                 buffer = io.BytesIO()
                 image.save(buffer, format="PNG")
                 image_bytes = buffer.getvalue()
@@ -118,39 +97,29 @@ class ModelHandler:
             }
 
         except Exception as e:
-            print(f"❌ Error during generation: {str(e)}")
             raise RuntimeError(f"Image generation failed: {str(e)}")
 
 
-# Initialize model handler
 model_handler = ModelHandler()
 
 
 def handler(job):
-    """
-    Handler function for RunPod serverless.
-    """
     try:
-        # Validate input
         job_input = job["input"]
 
-        # Validate against schema
         validated_input = validate(job_input, INPUT_SCHEMA)
         if "errors" in validated_input:
             return {"error": f"Input validation failed: {validated_input['errors']}"}
 
         validated_data = validated_input["validated_input"]
 
-        # Generate image
         result = model_handler.generate_image(validated_data)
 
         return result
 
     except Exception as e:
-        print(f"❌ Handler error: {str(e)}")
         return {"error": str(e)}
 
 
 if __name__ == "__main__":
-    print("🎯 Starting SDXL Turbo Worker...")
     runpod.serverless.start({"handler": handler})
