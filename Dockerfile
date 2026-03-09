@@ -1,6 +1,8 @@
+# base image with cuda 12.1
 FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
-# Install Python 3.11 and necessary system tools
+# install python 3.11 and pip
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     software-properties-common \
     && add-apt-repository ppa:deadsnakes/ppa \
@@ -11,24 +13,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv for fast dependency resolution
+# install uv
 RUN pip install uv
 
-# Create the virtual environment
+# create venv
+ENV PATH="/.venv/bin:${PATH}"
 RUN uv venv --python 3.11 /.venv
 
-# Add the virtual environment to the PATH so 'python' automatically uses it
-ENV PATH="/.venv/bin:$PATH"
+# install dependencies
+# FIX: Removed '==0.0.23' from xformers to prevent the torch.xpu version conflict
+RUN uv pip install torch --extra-index-url https://download.pytorch.org/whl/cu121 diffusers transformers accelerate safetensors xformers runpod numpy==1.26.3 scipy triton huggingface-hub hf_transfer setuptools Pillow
 
-# Install Python packages (xformers is unpinned to fix the torch.xpu error)
-RUN uv pip install torch --extra-index-url https://download.pytorch.org/whl/cu121 \
-    diffusers transformers accelerate safetensors xformers runpod numpy==1.26.3 scipy triton huggingface-hub hf_transfer setuptools Pillow
-
-# Copy project files into the container
+# copy files
 COPY download_weights.py schemas.py handler.py test_input.json /
 
-# Download the weights from Hugging Face
+# download the weights from hugging face
 RUN python /download_weights.py
 
-# Run the handler
-CMD ["python", "/handler.py"]
+# run the handler
+CMD python -u /handler.py
